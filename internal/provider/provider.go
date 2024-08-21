@@ -57,14 +57,17 @@ func (p *proxmoxProvider) Schema(_ context.Context, _ provider.SchemaRequest, re
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
-				Optional: true,
+				Description: "URI for Proxmox VE API. May also be provided via PROXMOX_HOST environment variable.",
+				Optional:    true,
 			},
 			"username": schema.StringAttribute{
-				Optional: true,
+				Description: "Username for Proxmox VE API. May also be provided via PROXMOX_USERNAME environment variable.",
+				Optional:    true,
 			},
 			"password": schema.StringAttribute{
-				Optional:  true,
-				Sensitive: true,
+				Description: "Password for Proxmox VE API. May also be provided via PROXMOX_PASSWORD environment variable.",
+				Optional:    true,
+				Sensitive:   true,
 			},
 		},
 	}
@@ -170,6 +173,13 @@ func (p *proxmoxProvider) Configure(ctx context.Context, req provider.ConfigureR
 		return
 	}
 
+	ctx = tflog.SetField(ctx, "proxmox_host", host)
+	ctx = tflog.SetField(ctx, "proxmox_username", username)
+	ctx = tflog.SetField(ctx, "proxmox_password", password)
+	ctx = tflog.MaskFieldValuesWithFieldKeys(ctx, "proxmox_password")
+
+	tflog.Debug(ctx, "Creating Proxmox VE client")
+
 	insecureHTTPClient := http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -194,19 +204,7 @@ func (p *proxmoxProvider) Configure(ctx context.Context, req provider.ConfigureR
 	if err != nil {
 		panic(err)
 	}
-	tflog.Info(ctx, fmt.Sprintf("Proxmox VE Version: %s", version.Release)) // 6.3
-
-	// Create a new Proxmox VE client using the configuration values
-	//client, err := hashicups.NewClient(&host, &username, &password)
-	//if err != nil {
-	//resp.Diagnostics.AddError(
-	//"Unable to Create Proxmox VE API Client",
-	//"An unexpected error occurred when creating the Proxmox VE API client. "+
-	//"If the error is not clear, please contact the provider developers.\n\n"+
-	//"Proxmox VE Client Error: "+err.Error(),
-	//)
-	//return
-	//}
+	tflog.Info(ctx, fmt.Sprintf("Proxmox VE Version: %s", version.Release))
 
 	// Make the Proxmox VE client available during DataSource and Resource
 	// type Configure methods.
