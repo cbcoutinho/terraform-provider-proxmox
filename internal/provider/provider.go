@@ -221,5 +221,7 @@ func (p *proxmoxProvider) DataSources(_ context.Context) []func() datasource.Dat
 
 // Resources defines the resources implemented in the provider.
 func (p *proxmoxProvider) Resources(_ context.Context) []func() resource.Resource {
-	return nil
+	return []func() resource.Resource{
+		NewClusterFirewallGroupResource,
+	}
 }
