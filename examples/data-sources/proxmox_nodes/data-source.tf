@@ -7,3 +7,9 @@ terraform {
 }
 
 provider "proxmox" {}
+
+data "proxmox_nodes" "all" {}
+
+output "proxmox_nodes" {
+  value = data.proxmox_nodes.all
+}
