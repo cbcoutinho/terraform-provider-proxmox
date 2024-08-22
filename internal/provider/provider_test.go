@@ -5,13 +5,13 @@ const (
 // test configuration so the HashiCups client is properly configured.
 // It is also possible to use the HASHICUPS_ environment variables instead,
 // such as updating the Makefile and running the testing through that tool.
-//providerConfig = `
-//provider "hashicups" {
-//host     = "https://localhost:8006"
-//username = "root"
-//password = "test123"
-//}
-//`
+// providerConfig = `
+// provider "hashicups" {
+// host     = "https://localhost:8006"
+// username = "root"
+// password = "test123"
+// }
+// `
 )
 
 var (
@@ -19,7 +19,7 @@ var (
 // acceptance testing. The factory function will be invoked for every Terraform
 // CLI command executed to create a provider server to which the CLI can
 // reattach.
-//testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-//"proxmox": providerserver.NewProtocol6WithError(New("test")()),
-//}
+// testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
+// "proxmox": providerserver.NewProtocol6WithError(New("test")()),
+// }
 )
