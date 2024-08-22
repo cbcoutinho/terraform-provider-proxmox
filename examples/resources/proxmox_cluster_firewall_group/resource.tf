@@ -10,4 +10,5 @@ provider "proxmox" {}
 
 resource "proxmox_cluster_firewall_group" "example" {
   group = "example"
+  #comment = "test comment" # TODO: Not yet supported
 }

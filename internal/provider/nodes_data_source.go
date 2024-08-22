@@ -20,7 +20,8 @@ func NewNodesDataSource() datasource.DataSource {
 }
 
 type nodesDataSource struct {
-	client *proxmox.Client
+	client  *proxmox.Client
+	cluster *proxmox.Cluster
 }
 
 type nodesDataSourceModel struct {
@@ -29,6 +30,7 @@ type nodesDataSourceModel struct {
 
 // coffeesModel maps coffees schema data.
 type nodeModel struct {
+	ID             types.String `tfsdk:"id"`
 	Node           types.String `tfsdk:"node"`
 	Status         types.String `tfsdk:"status"`
 	MaxCPU         types.Int64  `tfsdk:"maxcpu"`
@@ -120,6 +122,7 @@ func (d *nodesDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 	// Map response body to model
 	for _, node := range nodes {
 		nodeState := nodeModel{
+			ID:             types.StringValue(node.ID),
 			Node:           types.StringValue(node.Name),
 			Status:         types.StringValue(node.Status),
 			MaxCPU:         types.Int64Value(int64(node.MaxCPU)),

@@ -206,8 +206,8 @@ func (p *proxmoxProvider) Configure(ctx context.Context, req provider.ConfigureR
 	}
 	tflog.Info(ctx, fmt.Sprintf("Proxmox VE Version: %s", version.Release))
 
-	// Make the Proxmox VE client available during DataSource and Resource
-	// type Configure methods.
+	// Make the Proxmox VE client and cluster available during DataSource and
+	// Resource type Configure methods.
 	resp.DataSourceData = client
 	resp.ResourceData = client
 }

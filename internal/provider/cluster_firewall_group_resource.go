@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/luthermonson/go-proxmox"
 )
 
@@ -28,8 +29,8 @@ type clusterFirewallGroupResource struct {
 
 // clusterFirewallGroupResourceModel maps the resource schema data.
 type clusterFirewallGroupResourceModel struct {
-	Group         types.String                    `tfsdk:"group"`
-	Comment       types.String                    `tfsdk:"comment"`
+	Group types.String `tfsdk:"group"`
+	//Comment       types.String                    `tfsdk:"comment"`
 	FirewallRules []clusterFirewallGroupRuleModel `tfsdk:"rules"`
 }
 
@@ -72,13 +73,13 @@ func (r *clusterFirewallGroupResource) Schema(_ context.Context, _ resource.Sche
 			"group": schema.StringAttribute{
 				Required: true,
 			},
-			"comment": schema.StringAttribute{
-				Optional: true,
-				Computed: true, // Allow switch from `nil` to `""`
-			},
+			// TODO: The proxmox go API doesn't support comments
+			//"comment": schema.StringAttribute{
+			//Optional: true,
+			//Computed: true, // Allow switch from `nil` to `""`
+			//},
 			"rules": schema.ListNestedAttribute{
 				Optional: true,
-				Computed: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"action": schema.StringAttribute{
@@ -98,6 +99,8 @@ func (r *clusterFirewallGroupResource) Schema(_ context.Context, _ resource.Sche
 func (r *clusterFirewallGroupResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Retrieve values from plan
 	var plan clusterFirewallGroupResourceModel
+
+	tflog.Info(ctx, "Getting data from plan for proxmox_cluster_firewall_group")
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -113,12 +116,23 @@ func (r *clusterFirewallGroupResource) Create(ctx context.Context, req resource.
 		return
 	}
 
-	fwGroupN := proxmox.FirewallSecurityGroup{
-		Group: plan.Group.ValueString(),
+	rules := []*proxmox.FirewallRule{}
+	for _, rule := range plan.FirewallRules {
+		rules = append(rules, &proxmox.FirewallRule{
+			Action: rule.Action.ValueString(),
+			Type:   rule.Type.ValueString(),
+		})
 	}
 
-	if !plan.Comment.IsNull() {
-		fwGroupN.Comment = plan.Comment.ValueString()
+	//comment := "" // TODO: Move defaults somewhere else
+	//if !plan.Comment.IsNull() {
+	//comment = plan.Comment.ValueString()
+	//}
+
+	fwGroupN := proxmox.FirewallSecurityGroup{
+		Group: plan.Group.ValueString(),
+		//Comment: comment,
+		Rules: rules,
 	}
 
 	err = cluster.NewFWGroup(ctx, &fwGroupN)
@@ -130,7 +144,8 @@ func (r *clusterFirewallGroupResource) Create(ctx context.Context, req resource.
 		return
 	}
 
-	fwGroup, err := cluster.FWGroup(ctx, plan.Group.ValueString())
+	tflog.Info(ctx, "Retrieving latest status on firewall group")
+	fwGroup, err := cluster.FWGroup(ctx, fwGroupN.Group)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to retrieve Proxmox Cluster Firewall Group",
@@ -140,7 +155,7 @@ func (r *clusterFirewallGroupResource) Create(ctx context.Context, req resource.
 	}
 
 	plan.Group = types.StringValue(fwGroup.Group)
-	plan.Comment = types.StringPointerValue(&fwGroup.Comment)
+	//plan.Comment = types.StringValue(fwGroup.Comment)
 	for index, rule := range fwGroup.Rules {
 		plan.FirewallRules[index] = clusterFirewallGroupRuleModel{
 			Action: types.StringValue(rule.Action),
@@ -186,8 +201,7 @@ func (r *clusterFirewallGroupResource) Read(ctx context.Context, req resource.Re
 	}
 
 	state.Group = types.StringValue(fwGroup.Group)
-	state.Comment = types.StringPointerValue(&fwGroup.Comment)
-	state.FirewallRules = []clusterFirewallGroupRuleModel{} // NOTE: Set value to empty list before populating
+	//state.Comment = types.StringValue(fwGroup.Comment)
 	for index, rule := range fwGroup.Rules {
 		state.FirewallRules[index] = clusterFirewallGroupRuleModel{
 			Action: types.StringValue(rule.Action),
@@ -206,6 +220,92 @@ func (r *clusterFirewallGroupResource) Read(ctx context.Context, req resource.Re
 
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *clusterFirewallGroupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// Retrieve values from plan
+	var plan clusterFirewallGroupResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	cluster, err := r.client.Cluster(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read Proxmox Cluster",
+			err.Error(),
+		)
+		return
+	}
+
+	tflog.Info(ctx, "Creating request body value")
+
+	// TODO: Update existing firewall group instead of recreating it
+	tflog.Info(ctx, "Fetching latest state from Proxmox")
+	fwGroup, err := cluster.FWGroup(ctx, plan.Group.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to retrieve Proxmox Cluster Firewall Group",
+			err.Error(),
+		)
+		return
+	}
+	fwGroup.Delete(ctx)
+
+	// Generate API request body from plan
+	rules := []*proxmox.FirewallRule{}
+	for _, rule := range plan.FirewallRules {
+		rules = append(rules, &proxmox.FirewallRule{
+			Action: rule.Action.ValueString(),
+			Type:   rule.Type.ValueString(),
+		})
+	}
+
+	//comment := "" // TODO: Move defaults somewhere else
+	//if !plan.Comment.IsNull() {
+	//comment = plan.Comment.ValueString()
+	//}
+
+	fwGroupN := proxmox.FirewallSecurityGroup{
+		Group: plan.Group.ValueString(),
+		//Comment: comment,
+		Rules: rules,
+	}
+
+	err = cluster.NewFWGroup(ctx, &fwGroupN)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to create Proxmox Cluster Firewall Group",
+			err.Error(),
+		)
+		return
+	}
+
+	tflog.Info(ctx, "Fetching latest state from Proxmox")
+	fwGroup, err = cluster.FWGroup(ctx, fwGroupN.Group)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to retrieve Proxmox Cluster Firewall Group",
+			err.Error(),
+		)
+		return
+	}
+
+	tflog.Info(ctx, "Overwriting local state using response")
+
+	plan.Group = types.StringValue(fwGroup.Group)
+	//plan.Comment = types.StringValue(fwGroup.Comment)
+	for index, rule := range fwGroup.Rules {
+		plan.FirewallRules[index] = clusterFirewallGroupRuleModel{
+			Action: types.StringValue(rule.Action),
+			Type:   types.StringValue(rule.Type),
+		}
+	}
+
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
