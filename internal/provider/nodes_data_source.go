@@ -20,8 +20,7 @@ func NewNodesDataSource() datasource.DataSource {
 }
 
 type nodesDataSource struct {
-	client  *proxmox.Client
-	cluster *proxmox.Cluster
+	client *proxmox.Client
 }
 
 type nodesDataSourceModel struct {

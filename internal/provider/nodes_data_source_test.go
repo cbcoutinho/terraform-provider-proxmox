@@ -15,7 +15,7 @@ package provider
 //})
 //}
 
-const testAccNodesDataSourceConfig = `
-data "proxmox_nodes" "all" {
-}
-`
+//const testAccNodesDataSourceConfig = `
+//data "proxmox_nodes" "all" {
+//}
+//`

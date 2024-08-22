@@ -42,5 +42,12 @@ output "proxmox_nodes" {
 
 Read-Only:
 
+- `id` (String)
+- `level` (String)
+- `maxcpu` (Number)
+- `maxdisk` (Number)
+- `maxmem` (Number)
 - `node` (String)
+- `ssl_fingerprint` (String)
 - `status` (String)
+- `type` (String)

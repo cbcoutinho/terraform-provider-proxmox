@@ -249,7 +249,14 @@ func (r *clusterFirewallGroupResource) Update(ctx context.Context, req resource.
 		)
 		return
 	}
-	fwGroup.Delete(ctx)
+	err = fwGroup.Delete(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read Proxmox Cluster",
+			err.Error(),
+		)
+		return
+	}
 
 	// Generate API request body from plan
 	rules := []*proxmox.FirewallRule{}
