@@ -187,8 +187,6 @@ func (p *proxmoxProvider) Configure(ctx context.Context, req provider.ConfigureR
 			},
 		},
 	}
-	//tokenID := "root@pam!mytoken"
-	//secret := "somegeneratedapitokenguidefromtheproxmoxui"
 
 	credentials := proxmox.Credentials{
 		Username: username,
@@ -198,6 +196,9 @@ func (p *proxmoxProvider) Configure(ctx context.Context, req provider.ConfigureR
 		proxmox.WithHTTPClient(&insecureHTTPClient),
 		//proxmox.WithAPIToken(tokenID, secret),
 		proxmox.WithCredentials(&credentials),
+		proxmox.WithLogger(&proxmox.LeveledLogger{
+			Level: proxmox.LevelDebug,
+		}),
 	)
 
 	version, err := client.Version(ctx)
@@ -216,6 +217,7 @@ func (p *proxmoxProvider) Configure(ctx context.Context, req provider.ConfigureR
 func (p *proxmoxProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewNodesDataSource,
+		NewNodeNetworksDataSource,
 	}
 }
 
