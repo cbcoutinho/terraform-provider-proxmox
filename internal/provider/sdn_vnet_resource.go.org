@@ -1,0 +1,176 @@
+package provider
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/luthermonson/go-proxmox"
+)
+
+// Ensure the implementation satisfies the expected interfaces.
+var (
+	_ resource.Resource              = &sdnVnetResource{}
+	_ resource.ResourceWithConfigure = &sdnVnetResource{}
+)
+
+// NewClusterFirewallGroupResource is a helper function to simplify the provider implementation.
+func NewSdnVnetResource() resource.Resource {
+	return &sdnVnetResource{}
+}
+
+// clusterFirewallGroupResource is the resource implementation.
+type sdnVnetResource struct {
+	client *proxmox.Client
+}
+
+type sdnVnetResourceModel struct {
+	Zone types.String `tfsdk:"zone"`
+	Vnet types.String `tfsdk:"vnet"`
+}
+
+func (z *sdnVnetResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	// Add a nil check when handling ProviderData because Terraform
+	// sets that data after it calls the ConfigureProvider RPC.
+	if req.ProviderData == nil {
+		return
+	}
+
+	client, ok := req.ProviderData.(*proxmox.Client)
+
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Data Source Configure Type",
+			fmt.Sprintf("Expected *proxmox.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+
+		return
+	}
+
+	z.client = client
+}
+
+// Metadata returns the resource type name.
+func (z *sdnVnetResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_sdn_vnet"
+}
+
+func (z *sdnVnetResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"zone": schema.StringAttribute{
+				Required: true,
+			},
+			"vnet": schema.StringAttribute{
+				Required: true,
+			},
+		},
+	}
+}
+
+func (z *sdnVnetResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+
+	tflog.Info(ctx, "Getting data from plan for proxmox_sdn_vnet")
+	var plan sdnVnetResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	vnet := plan.Vnet.ValueString()
+	vnetZone := plan.Zone.ValueString()
+	tflog.Info(ctx, fmt.Sprintf("Creating new vnet %s in zone %s", vnet, vnetZone))
+	_, err := z.client.NewVnet(ctx, vnet, vnetZone)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read Proxmox Node",
+			err.Error(),
+		)
+		return
+	}
+
+	tflog.Info(ctx, fmt.Sprintf("Successfully created Vnet: %s", vnet))
+
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+}
+
+func (z *sdnVnetResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+
+	tflog.Info(ctx, "Reading SDN Vnet state")
+	var state sdnVnetResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	tflog.Info(ctx, "Refreshing SDN Vnet from Proxmox")
+	zoneName := state.Vnet.ValueString()
+	ret, err := z.client.Vnet(ctx, zoneName)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read Proxmox Node",
+			err.Error(),
+		)
+		return
+	}
+
+	tflog.Info(ctx, "Mapping respnnse values to resource schema attributes")
+	state.Vnet = types.StringValue(ret.Vnet)
+	state.Zone = types.StringValue(ret)
+
+	tflog.Info(ctx, "Setting state based on response from Proxmox")
+	diags = resp.State.Set(ctx, state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+}
+
+func (z *sdnVnetResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	tflog.Info(ctx, "Reading SDN Vnet config from plan")
+	var plan sdnVnetResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	tflog.Info(ctx, "Generating API request from plan")
+	tflog.Info(ctx, "Updating the SDN Vnet")
+	tflog.Info(ctx, "Mapping response to resource schema attributes")
+	tflog.Info(ctx, "Set state with the updated SDN Vnet")
+}
+
+func (z *sdnVnetResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	tflog.Info(ctx, "Reading SDN Vnet config from state")
+	var state sdnVnetResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	tflog.Info(ctx, "Deleting SDN Vnet")
+	zone, err := z.client.Vnet(ctx, state.Vnet.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read Proxmox Node",
+			err.Error(),
+		)
+		return
+	}
+
+	zone.Delete(ctx)
+
+	return
+}

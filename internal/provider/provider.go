@@ -201,12 +201,6 @@ func (p *proxmoxProvider) Configure(ctx context.Context, req provider.ConfigureR
 		}),
 	)
 
-	version, err := client.Version(ctx)
-	if err != nil {
-		panic(err)
-	}
-	tflog.Info(ctx, fmt.Sprintf("Proxmox VE Version: %s", version.Release))
-
 	// Make the Proxmox VE client and cluster available during DataSource and
 	// Resource type Configure methods.
 	resp.DataSourceData = client
@@ -224,6 +218,7 @@ func (p *proxmoxProvider) DataSources(_ context.Context) []func() datasource.Dat
 // Resources defines the resources implemented in the provider.
 func (p *proxmoxProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
+		NewSdnZoneResource,
 		NewClusterFirewallGroupResource,
 	}
 }

@@ -99,7 +99,6 @@ func (r *clusterFirewallGroupResource) Schema(_ context.Context, _ resource.Sche
 func (r *clusterFirewallGroupResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Retrieve values from plan
 	var plan clusterFirewallGroupResourceModel
-
 	tflog.Info(ctx, "Getting data from plan for proxmox_cluster_firewall_group")
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
